@@ -1,10 +1,8 @@
 from device_handler import *
-from service import *
+from service import server
 
 
 def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(("127.0.0.1", 20332))
     server.listen()
 
     device_handler = DeviceManager(0.2)
@@ -20,12 +18,9 @@ def main():
             continue
 
         device = Device(user, adr, msg)
-        print(device)
 
         if not device_handler.auth(device):
             continue
-
-        print("1")
 
         device_handler.add_device_to_process(device)
 

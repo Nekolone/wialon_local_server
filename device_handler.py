@@ -65,11 +65,10 @@ class DeviceManager:
         # добавление
 
     def _device_listen(self, device):
-        print("next?")
         device.status = "connected"
         while device.zero_msg_count < 5 and self.loop:
             msg = device.user.recv(1024)
-            print(msg)
+            print("get new msg >>", msg)
             new_info = device.parse(msg)
             """
             добавть поддержку сообщений большей длинны
@@ -110,24 +109,19 @@ class DeviceManager:
                     continue
 
                 case "disconnected":
-                    print("here cds2?")
                     self._delete_device(self.device_list[d])
 
                 case "new":
-                    print("here cds3?")
                     self._start_listening_device(self.device_list[d])
 
     def _start_listening_device(self, device):
-        print("sld")
         print(device)
         device.thread_link = Thread(target=self._device_listen, args=([device]))
         device.thread_link.start()
 
     def _delete_device(self, d):
         lock.acquire()
-        print(d)
         self.device_list.pop(d.id, None)
-        print(self.device_list)
         lock.release()
 
     def _prepare_data_to_send(self):
