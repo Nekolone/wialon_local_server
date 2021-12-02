@@ -10,6 +10,7 @@ def main():
     while device_handler.status:
         user, adr = server.accept()
         msg = user.recv(1024).decode("utf-8").replace("\r\n", "")
+        # msg = user.recv(1024).decode("utf-8").replace("\r\n", "")
         print(msg)
         """
         возможно сделать что-то с recv, во избежание возможных ошибок.

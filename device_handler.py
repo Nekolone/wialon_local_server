@@ -1,5 +1,6 @@
 from threading import Thread
 import time
+from datetime import datetime
 from service import lock
 
 
@@ -38,7 +39,7 @@ class Parser:
         """
         return
 
-    def parse_v1(self, msg):
+    def parse_v1(self, device, msg):
         nothing, msg_type, msg_params = msg.split("#")
         msg_info = None
         answ = None
@@ -48,11 +49,9 @@ class Parser:
                 # data
                 answ, msg_info = self.parse_d_v1(msg_params)
             case "P":
+                # ping
                 answ = "#AP#\r\n"
                 msg_info = []
-                """
-                пинг записывать на сервер не нужно!!
-                """
             case "SD":
                 # short data
                 answ, msg_info = self.parse_sd_v1(msg_params)
@@ -64,7 +63,9 @@ class Parser:
                 answ, msg_info = self.parse_m_v1(msg_params)
             case "I":
                 # img
-                answ, msg_info = self.parse_i_v1(msg_params)
+                # answ = "#AI#0\r\n"
+                # msg_info = []
+                answ, msg_info = self.parse_i_v1(device, msg_params)
 
         """
         поискать инфу про пакет с прошивкой и файлом конфигурации
@@ -72,13 +73,43 @@ class Parser:
 
         return answ, msg_type, msg_info
 
-    def parse_v2(self, msg):
-        return msg
+    def parse_v2(self, device, msg):
+        nothing, msg_type, msg_params = msg.split("#")
+        msg_info = None
+        answ = None
+
+        match msg_type:
+            case "SD":
+                answ, msg_type = self.parse_sd_v2(msg_params)
+
+            case "D":
+                answ, msg_type = self.parse_d_v2(msg_params)
+
+            case "B ":
+                answ, msg_type = self.parse_b_v2(msg_params)
+
+            case "P":
+                answ = "#AP#\r\n"
+                msg_info = []
+
+            case "M":
+                answ, msg_type = self.parse_m_v2(msg_params)
+
+            case "I":
+                answ, msg_type = self.parse_i_v2(msg_params)
+
+            case "IT":
+                answ, msg_type = self.parse_it_v2(device, msg_params)
+
+            case "T":
+                answ, msg_type = self.parse_t_v2(device, msg_params)
+
+        return answ, msg_type, msg_info
 
     @staticmethod
     def parse_sd_v1(msg_params):
-        params = msg_params.split(";")
         # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats
+        params = msg_params.split(";")
         if len(params) != 10:
             answ = "#ASD#-1\r\n"
             return answ, []
@@ -111,11 +142,112 @@ class Parser:
             answ = "#ASD#12\r\n"
             return answ, params
 
+    def parse_sd_v2(self, msg_params):
+        # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats
+        params = msg_params.split(";")
+        crc = self.check_crc(params[-1:])
+
+        if not crc:
+            answ = "#ASD#13\r\n"
+            return answ, []
+
+        if len(params) != 11:
+            answ = "#ASD#-1\r\n"
+            return answ, []
+
+        if not "NA" in params:
+            answ = "#ASD#1\r\n"
+
+            """
+            тут добавить обработку строк перед отпракой на сервер
+            """
+            return answ, params
+
+        if "NA" in params[:2]:
+            # date & time
+            params[0] = datetime.utcnow().strftime("%d%m%y")
+            params[1] = datetime.utcnow().strftime("%d%m%y")
+            answ = "#ASD#0\r\n"
+            return answ, params
+
+        if "NA" in params[2:6]:
+            # cords
+            answ = "#ASD#10\r\n"
+            return answ, params
+
+        if "NA" in params[6:9]:
+            # speed, course, height
+            answ = "#ASD#11\r\n"
+            return answ, params
+
+        if "NA" in params[9:10]:
+            # sats
+            answ = "#ASD#12\r\n"
+            return answ, params
+        answ = "#AI#1\r\n"
+        return answ, params
+
     @staticmethod
     def parse_d_v1(msg_params):
         params = msg_params.split(";")
         # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params
-        if len(params) != 16:
+        if len(params) < 16:
+            answ = "#AD#-1\r\n"
+            return answ, []
+
+        if "NA" in params[:2]:
+            # date & time
+            answ = "#AD#0\r\n"
+            return answ, params
+
+        if not "NA" in params:
+            answ = "#AD#1\r\n"
+
+            """
+            тут добавить обработку строк перед отпракой на сервер
+            """
+            return answ, params
+
+        if "NA" in params[2:6]:
+            # cords
+            answ = "#AD#10\r\n"
+            return answ, params
+
+        if "NA" in params[6:9]:
+            # speed, course, height
+            answ = "#AD#11\r\n"
+            return answ, params
+
+        if "NA" in params[9:11]:
+            # sats & hdop
+            answ = "#AD#12\r\n"
+            return answ, params
+
+        if "NA" in params[11:13]:
+            # inputs & outputs
+            answ = "#AD#13\r\n"
+            return answ, params
+
+        if "NA" in params[13:14]:
+            # adc
+            answ = "#AD#14\r\n"
+            return answ, params
+
+        if "NA" in params[15:]:
+            # adds
+            answ = "#AD#15\r\n"
+            return answ, params
+
+    def parse_d_v2(self, msg_params):
+        params = msg_params.split(";")
+        crc = self.check_crc(params[-1:])
+        # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params
+
+        if not crc:
+            answ = "#AD#16\r\n"
+            return answ, []
+
+        if len(params) < 16:
             answ = "#AD#-1\r\n"
             return answ, []
 
@@ -129,6 +261,8 @@ class Parser:
 
         if "NA" in params[:2]:
             # date & time
+            params[0] = datetime.utcnow().strftime("%d%m%y")
+            params[1] = datetime.utcnow().strftime("%d%m%y")
             answ = "#AD#0\r\n"
             return answ, params
 
@@ -157,7 +291,7 @@ class Parser:
             answ = "#AD#14\r\n"
             return answ, params
 
-        if "NA" in params[15:16]:
+        if "NA" in params[15:]:
             # adds
             answ = "#AD#15\r\n"
             return answ, params
@@ -169,13 +303,37 @@ class Parser:
             "D": []
         }
         for i in items:
-            if len(i.split(";")) == 10:
-                an, msg_info = self.parse_sd_v1(i)
-                res["SD"].append(msg_info)
+            if "NA" in i:
                 continue
-            an, msg_info = self.parse_d_v1(i)
-            res["D"].append(msg_info)
+            if len(i.split(";")) == 10:
+                res["SD"].append(i.split(";"))
+                continue
+            res["D"].append(i.split(";"))
         answ = f"#AB#{len(items)}\r\n"
+        return answ, res
+
+    def parse_b_v2(self, msg_params):
+        items = msg_params.split("|")
+
+        crc = self.check_crc(items[-1:])
+
+        res = {
+            "SD": [],
+            "D": []
+        }
+
+        if not crc:
+            answ = "#AB#\r\n"
+            return answ, []
+
+        for i in items[:-1]:
+            if "NA" in i:
+                continue
+            if len(i.split(";")) == 11:
+                res["SD"].append(i.split(";"))
+                continue
+            res["D"].append(i.split(";"))
+        answ = f"#AB#{len(items) - 1}\r\n"
         return answ, res
 
     @staticmethod
@@ -186,18 +344,73 @@ class Parser:
         answ = "#AM#0\r\n"
         return answ, msg_params
 
-    def parse_i_v1(self, msg_params):
+    def parse_m_v2(self, msg_params):
+        params = msg_params.split(";")
+        crc = self.check_crc(params[-1:])
+
+        if not crc:
+            answ = "#AM#\r\n"
+            return answ, []
+
+        if len(msg_params) > 0:
+            answ = "#AM#1\r\n"
+            return answ, params
+        answ = "#AM#0\r\n"
+        return answ, params
+
+    def parse_i_v1(self, device, msg_params):
         # I#sz;ind;count;date;time;name\r\nBIN
-        params = msg_params.replace(" ", ";").split(";")
-        if len(params) != 7:
+        params = msg_params.split(";")
+        print(msg_params)
+        print(params)
+        if len(params) != 6:
             answ = "#AI#0\r\n"
             return answ, []
 
-        """РАБОТА С КАРТИНКАМИ, проверка на размер"""
+        params.append(device.user.recv(int(params[0])))
 
-        answ = "#AI#1\r\n"
+        answ = f"#AI#{int(params[1])};{int(params[2])}\r\n"
+
         return answ, params
 
+    def parse_i_v2(self, msg_params):
+        pass
+
+    def parse_it_v2(self, device, msg_params):
+        params = msg_params.split(";")
+        # Date;Time;DriverID;Code;Count;CRC16
+
+        crc = self.check_crc(params[-1:])
+
+        if not crc:
+            answ = "#AIT#01\r\n"
+            return answ, []
+
+        if "NA" in params[:2]:
+            # date & time
+            params[0] = datetime.utcnow().strftime("%d%m%y")
+            params[1] = datetime.utcnow().strftime("%d%m%y")
+
+        if not "NA" in params:
+            answ = "#AIT#1\r\n"
+            device.ddd_count = int(params[-2])
+            return answ, params
+
+        answ = "#AIT#0\r\n"
+        return answ, params
+
+    def parse_t_v2(self, device, msg_params):
+        params = msg_params.split(";")
+        # Code;Sz;Ind;CRC16;BIN
+
+        crc = self.check_crc(params[-1:])
+
+        if not crc:
+            answ = "#AT#01\r\n"
+            return answ, []
+
+    def check_crc(self, param):
+        pass
 
 
 class Device:
@@ -214,6 +427,15 @@ class Device:
         self._status = "new"
         self.thread_link = None
         self._zero_msg_count = 0
+        self.ddd = 0
+
+    @property
+    def ddd_count(self):
+        return self.ddd
+
+    @ddd_count.setter
+    def ddd_count(self, ddd):
+        self.ddd = ddd
 
     def add_zmc(self):
         self._zero_msg_count += 1
@@ -261,22 +483,33 @@ class DeviceManager:
     def _device_listen(self, device):
         device.status = "connected"
         while device.zero_msg_count < 5 and self.loop:
-            msg = device.user.recv(1024).decode("utf-8").replace("\r\n", " ")
-            """разобраться с приемом картинок"""
+            msg = self.recv_msg(device).decode("utf-8").replace("\r\n", "")
+            print(msg)
             if len(msg) == 0:
                 device.add_zmc()
                 time.sleep(1)
                 continue
             print("get new msg >>", msg)
-            answ, msg_type, msg_info = device.parse(msg)
-
+            answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
             self.add_info_to_datastorage(device, msg_type, msg_info)
             time.sleep(0.1)
         device.status = "disconnected"
+        device.user.close()
 
     # есчи пуступило 0 байт данных более 5 раз, запустить закрытие потока.
     # Запускаеься на потоке и просто слушает девайсы, при поступлении информации созраняет ее для дальнейшей отправки
+
+    @staticmethod
+    def recv_msg(device):
+        msg = b""
+        while not b"\r\n" in msg:
+            msg += device.user.recv(1)
+            if msg == b"":
+                return ""
+            # print(msg)
+
+        return msg
 
     @property
     def status(self):
@@ -359,43 +592,17 @@ class DeviceManager:
         self._status = False
 
     def add_info_to_datastorage(self, device, msg_type, msg_info):
+        if msg_type == "B":
+            lock.acquire()
+            self.data_storage[device.id]["SD"].append(msg_info["SD"])
+            self.data_storage[device.id]["D"].append(msg_info["D"])
+            lock.release()
+            return
+
+        if msg_type == "P":
+            return
+
         lock.acquire()
-        print(msg_type)
         self.data_storage[device.id][msg_type].append(msg_info)
         lock.release()
-
-#
-# def main():
-#     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#     server.bind(("127.0.0.1", 20332))
-#     server.listen()
-#
-#     # event_handler = Eventloop()
-#     prev_user = 0
-#
-#     while True:
-#         print("test--")
-#         new_device_to_thread(server)
-#
-#         time.sleep(0.2)
-#
-#
-# def new_device_to_thread(server):
-#     user, adr = server.accept()
-#     d1 = Thread(target=device_listening, args=([Device(user, adr)]))
-#     d1.start()
-#     print("new device connected, start new thread")
-#
-#
-# def device_listening(device):
-#     while True:
-#         new_device_print(device.user, device.addr)
-#
-#
-# def new_device_print(user, adr):
-#     print("test info from device")
-#     print(user.recv(1024).decode("utf-8"))
-#
-#
-# if __name__ == '__main__':
-#     main()
+        return
