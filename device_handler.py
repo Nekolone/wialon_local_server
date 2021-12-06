@@ -574,7 +574,7 @@ class DeviceManager:
         while not b"\r\n" in msg:
             msg += device.user.recv(1)
             if msg == b"":
-                return ""
+                return b""
             # print(msg)
 
         return msg
