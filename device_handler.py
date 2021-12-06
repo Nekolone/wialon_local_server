@@ -461,29 +461,21 @@ class Parser:
         return answ, params
 
     def check_crc(self, crc, msg):
-        print(crc)
         print(msg)
 
-        if not msg:
+        if not msg or msg == b"":
             return False
 
-        msg_crc = self.crc16(msg, 0, 5)
-        print(msg_crc)
+        print(crc)
+        return crc == self.crc16(msg)
 
-        return msg_crc == crc
+    def crc16(self, msg):
+        crc = 0x0000
+        for b in msg:
+            crc = (crc >> 8) ^ self.crc_table[(crc ^ b) & 0xFF]
 
-    def crc16(self, data: bytearray, offset, length):
-        if data is None or offset < 0 or offset > len(data) - 1 and offset + length > len(data):
-            return 0
-        crc = 0xFFFF
-        for i in range(0, length):
-            crc ^= data[offset + i] << 8
-            for j in range(0, 8):
-                if (crc & 0x8000) > 0:
-                    crc = (crc << 1) ^ 0x1021
-                else:
-                    crc = crc << 1
-        return crc & 0xFFFF
+        print(crc)
+        return crc
 
 
 class Device:
@@ -501,6 +493,7 @@ class Device:
         self.thread_link = None
         self._zero_msg_count = 0
         self.ddd = 0
+        print(f"device connected. Device id > {self.id}")
 
     @property
     def ddd_count(self):
@@ -556,12 +549,13 @@ class DeviceManager:
     def _device_listen(self, device):
         device.status = "connected"
         while device.zero_msg_count < 5 and self.loop:
-            msg = self.recv_msg(device).decode("utf-8").replace("\r\n", "")
-            print(msg)
+            msg = self.recv_msg(device)
+            # print(msg)
             if len(msg) == 0:
                 device.add_zmc()
                 time.sleep(1)
                 continue
+            msg = msg.decode("utf-8").replace("\r\n", "")
             print("get new msg >>", msg)
             answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
@@ -569,6 +563,7 @@ class DeviceManager:
             time.sleep(0.1)
         device.status = "disconnected"
         device.user.close()
+        print(f"device disconnected. Device id > {device.id}")
 
     # есчи пуступило 0 байт данных более 5 раз, запустить закрытие потока.
     # Запускаеься на потоке и просто слушает девайсы, при поступлении информации созраняет ее для дальнейшей отправки
@@ -596,9 +591,11 @@ class DeviceManager:
             self._send_data_to_server()
             self._clear_data()
             self._update_send_time()
+        time.sleep(0.5)
 
     def _clear_data(self):
-        for d in self.data_storage:
+        self.data_storage = {}
+        for d in self.device_list:
             self.data_storage[d] = {
                 "D": [],
                 "SD": [],
@@ -620,7 +617,7 @@ class DeviceManager:
                     self._start_listening_device(self.device_list[d])
 
     def _start_listening_device(self, device):
-        print(device)
+        # print(device)
         device.thread_link = Thread(target=self._device_listen, args=([device]))
         device.thread_link.start()
 
