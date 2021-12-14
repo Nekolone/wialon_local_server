@@ -79,7 +79,7 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
         # server.listen()
 
         try:
-            time.sleep(2)
+            self.connected = self.device_handler.status
             while self.device_handler.status and not self.stopped:
                 print("start")
                 user, adr = self.server.accept()
@@ -90,6 +90,7 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
                 device = Device(user, adr, msg)
                 if not self.device_handler.auth(device):
                     continue
+
 
                 self.device_handler.add_device_to_process(device)
             print("stop")
@@ -697,13 +698,14 @@ class DeviceManager:
         self.converted_data = {
             "deviceName": self._name,
             "deviceType": self._type,
-            "attributes": [{i: self.data_storage[i]} for i in self.data_storage],
-            "telemetry": [].append({"0": "0"})
+            "attributes": [{time.time(): self.data_storage[i]} for i in self.data_storage],
+            "telemetry": [{time.time(): self.data_storage[i]} for i in self.data_storage]
         }
         if not self.converted_data["attributes"]:
             self.converted_data["attributes"] = [{"0": "0"}]
         if not self.converted_data["telemetry"]:
             self.converted_data["telemetry"] = [{"0": "0"}]
+
         print(self.converted_data)
 
     """
