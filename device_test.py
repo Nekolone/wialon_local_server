@@ -79,8 +79,9 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
         # server.listen()
 
         try:
-            self.connected = self.device_handler.status
+            time.sleep(2)
             while self.device_handler.status and not self.stopped:
+                self.connected = self.device_handler.status
                 print("start")
                 user, adr = self.server.accept()
                 msg = user.recv(1024).decode("utf-8").replace("\r\n", "")
@@ -91,7 +92,6 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
                 if not self.device_handler.auth(device):
                     continue
 
-
                 self.device_handler.add_device_to_process(device)
             print("stop")
             self._stop_server()
@@ -100,6 +100,7 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
 
     def _stop_server(self):
         try:
+            print("server closed")
             self.server.close()
         except:
             print("server already closed")
@@ -585,8 +586,9 @@ class DeviceManager:
     def __init__(self, accepted_list, config, gateway, send_rate=60.0, sleep_time=0.1):
         self._gateway = gateway
         self._config = config
-        self._name = self._config.get("name", "Custom %s connector " + ''.join(
-            choice(ascii_lowercase) for _ in range(5)))
+        # self._name = self._config.get("name", "Custom %s connector " + ''.join(
+        #     choice(ascii_lowercase) for _ in range(5)))
+        self._name = self._gateway.name
         self._type = self._config.get("type", "default")
         self.tr_device_proc = Thread(target=self._device_process)
         self.device_list = {}
@@ -698,8 +700,8 @@ class DeviceManager:
         self.converted_data = {
             "deviceName": self._name,
             "deviceType": self._type,
-            "attributes": [{time.time(): self.data_storage[i]} for i in self.data_storage],
-            "telemetry": [{time.time(): self.data_storage[i]} for i in self.data_storage]
+            "attributes": [{i: self.data_storage[i]} for i in self.data_storage],
+            "telemetry": [{i: self.data_storage[i]} for i in self.data_storage]
         }
         if not self.converted_data["attributes"]:
             self.converted_data["attributes"] = [{"0": "0"}]
