@@ -1,7 +1,10 @@
 from threading import Thread
 import time
 from datetime import datetime
-from service import lock
+
+from threading import Thread, Lock
+
+lock = Lock()
 
 
 def self_loop(f):

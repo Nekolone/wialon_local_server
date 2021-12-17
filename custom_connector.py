@@ -34,9 +34,13 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
         # log.info("Devices in configuration file found: %s ",
         #          '\n'.join(device for device in self.devices))  # Message to logger
 
-        self.accepted_list = {
-            "11": "222222"
-        }
+        self.accepted_list = self.__config.get("accepted_list", {"0": "0"})
+        print(self.accepted_list)
+        #     {
+        #     "11": "222222",
+        #     "12": "222222",
+        #     "13": "222222"
+        # }
 
         """
         добавить в конфиг список разрешенных устройств с их ID и паролями
@@ -700,13 +704,10 @@ class DeviceManager:
         self.converted_data = {
             "deviceName": self._name,
             "deviceType": self._type,
-            "attributes": [{i: self.data_storage[i]} for i in self.data_storage],
-            "telemetry": [{i: self.data_storage[i]} for i in self.data_storage]
+            "attributes": [{"connected_devices_id": [d for d in self.device_list]}],
+            "telemetry": [{f"msg from gateway {time.time()}": self.data_storage[i]} for i in self.data_storage]
         }
-        if not self.converted_data["attributes"]:
-            self.converted_data["attributes"] = [{"0": "0"}]
-        if not self.converted_data["telemetry"]:
-            self.converted_data["telemetry"] = [{"0": "0"}]
+
 
         print(self.converted_data)
 
@@ -728,6 +729,10 @@ class DeviceManager:
     """
 
     def _send_data_to_server(self):
+        if not self.converted_data["attributes"]:
+            self.converted_data["attributes"] = [{"0": "0"}]
+        if not self.converted_data["telemetry"]:
+            return
         self._gateway.send_to_storage(self._name, self.converted_data)
 
     def _update_send_time(self):
