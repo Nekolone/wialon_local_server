@@ -1,6 +1,7 @@
 from threading import Thread
 import time
 from datetime import datetime
+import sys
 
 from threading import Thread, Lock
 
@@ -67,8 +68,9 @@ class Parser:
                     device.id, device.password = params
                     device.parse = self.parse_v1
                     return
-
+                sys.stdout = open('test_log.txt', 'a')
                 print("login error, disconnect device")
+                sys.stdout.close()
                 return
         """
         not a login msg
@@ -228,52 +230,59 @@ class Parser:
     def parse_d_v1(msg_params):
         params = msg_params.split(";")
         # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params
-        if len(params) < 16:
-            answ = "#AD#-1\r\n"
-            return answ, []
+        answ = "#AD#1\r\n"
 
-        if "NA" in params[:2]:
-            # date & time
-            answ = "#AD#0\r\n"
-            return answ, params
-
-        if not "NA" in params:
-            answ = "#AD#1\r\n"
-
-            """
-            тут добавить обработку строк перед отпракой на сервер
-            """
-            return answ, params
-
-        if "NA" in params[2:6]:
-            # cords
-            answ = "#AD#10\r\n"
-            return answ, params
-
-        if "NA" in params[6:9]:
-            # speed, course, height
-            answ = "#AD#11\r\n"
-            return answ, params
-
-        if "NA" in params[9:11]:
-            # sats & hdop
-            answ = "#AD#12\r\n"
-            return answ, params
-
-        if "NA" in params[11:13]:
-            # inputs & outputs
-            answ = "#AD#13\r\n"
-            return answ, params
-
-        if "NA" in params[13:14]:
-            # adc
-            answ = "#AD#14\r\n"
-            return answ, params
-
-        if "NA" in params[15:]:
-            # adds
-            answ = "#AD#15\r\n"
-            return answ, params
+        """
+        тут добавить обработку строк перед отпракой на сервер
+        """
+        return answ, params
+        #
+        # if len(params) < 16:
+        #     answ = "#AD#-1\r\n"
+        #     return answ, []
+        #
+        # if "NA" in params[:2]:
+        #     # date & time
+        #     answ = "#AD#0\r\n"
+        #     return answ, params
+        #
+        # if not "NA" in params:
+        #     answ = "#AD#1\r\n"
+        #
+        #     """
+        #     тут добавить обработку строк перед отпракой на сервер
+        #     """
+        #     return answ, params
+        #
+        # if "NA" in params[2:6]:
+        #     # cords
+        #     answ = "#AD#10\r\n"
+        #     return answ, params
+        #
+        # if "NA" in params[6:9]:
+        #     # speed, course, height
+        #     answ = "#AD#11\r\n"
+        #     return answ, params
+        #
+        # # if "NA" in params[9:11]:
+        # #     # sats & hdop
+        # #     answ = "#AD#12\r\n"
+        # #     return answ, params
+        #
+        # if "NA" in params[11:13]:
+        #     # inputs & outputs
+        #     answ = "#AD#13\r\n"
+        #     return answ, params
+        #
+        # if "NA" in params[13:14]:
+        #     # adc
+        #     answ = "#AD#14\r\n"
+        #     return answ, params
+        #
+        # if "NA" in params[15:]:
+        #     # adds
+        #     answ = "#AD#15\r\n"
+        #     return answ, params
 
     def parse_d_v2(self, msg_params):
         params = msg_params.split(";")
@@ -401,8 +410,9 @@ class Parser:
     def parse_i_v1(device, msg_params):
         # I#sz;ind;count;date;time;name\r\nBIN
         params = msg_params.split(";")
-        print(msg_params)
-        print(params)
+
+        # print(msg_params)
+        # print(params)
         if len(params) != 6:
             answ = "#AI#0\r\n"
             return answ, []
@@ -464,12 +474,12 @@ class Parser:
         return answ, params
 
     def check_crc(self, crc, msg):
-        print(msg)
+        # print(msg)
 
         if not msg or msg == b"":
             return False
 
-        print(crc)
+        # print(crc)
         return crc == self.crc16(msg)
 
     def crc16(self, msg):
@@ -477,7 +487,7 @@ class Parser:
         for b in msg:
             crc = (crc >> 8) ^ self.crc_table[(crc ^ b) & 0xFF]
 
-        print(crc)
+        # print(crc)
         return crc
 
 
@@ -496,7 +506,9 @@ class Device:
         self.thread_link = None
         self._zero_msg_count = 0
         self.ddd = 0
+        sys.stdout = open('test_log.txt', 'a')
         print(f"device connected. Device id > {self.id}")
+        sys.stdout.close()
 
     @property
     def ddd_count(self):
@@ -534,6 +546,7 @@ class DeviceManager:
         self.time = None
         self.send_rate = send_rate
         self.sleep_time = sleep_time
+        # self.f = open('log.txt', 'w')
         self._update_send_time()
 
     def add_device_to_process(self, device):
@@ -559,14 +572,21 @@ class DeviceManager:
                 time.sleep(1)
                 continue
             msg = msg.decode("utf-8").replace("\r\n", "")
+
+            sys.stdout = open('test_log.txt', 'a')
+
             print("get new msg >>", msg)
+            sys.stdout.close()
             answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
             self.add_info_to_datastorage(device, msg_type, msg_info)
             time.sleep(0.1)
         device.status = "disconnected"
         device.user.close()
+
+        sys.stdout = open('test_log.txt', 'a')
         print(f"device disconnected. Device id > {device.id}")
+        sys.stdout.close()
 
     # есчи пуступило 0 байт данных более 5 раз, запустить закрытие потока.
     # Запускаеься на потоке и просто слушает девайсы, при поступлении информации созраняет ее для дальнейшей отправки
@@ -633,7 +653,7 @@ class DeviceManager:
         pass
 
     def _send_data_to_server(self):
-        print(self.data_storage)
+        # print(self.data_storage)
         pass
 
     def _update_send_time(self):
@@ -642,11 +662,17 @@ class DeviceManager:
     #         ВОТ ТУТ ЦИКЛ проверяет наличие новых данных и запускает отправку на сервер
 
     def auth(self, device):
-        if self.accepted_list[device.id] == device.password:
-            self.msg_answer(device, "#AL#1\r\n")
-            return True
-        self.msg_answer(device, "#AL#0\r\n")
-        return False
+        if not device.id:
+            self.msg_answer(device, "#AL#0\r\n")
+            return False
+        self.msg_answer(device, "#AL#1\r\n")
+        return True
+
+        # if self.accepted_list[device.id] == device.password:
+        #     self.msg_answer(device, "#AL#1\r\n")
+        #     return True
+        # self.msg_answer(device, "#AL#0\r\n")
+        # return False
 
     def msg_answer(self, device, answer):
         device.user.send(f"{answer}".encode("utf-8"))
@@ -673,6 +699,9 @@ class DeviceManager:
             return
 
         if msg_type == "P":
+            return
+
+        if msg_type == "L":
             return
 
         lock.acquire()
