@@ -14,7 +14,7 @@ server.bind(("192.168.100.107", 10003))
 
 def main():
     server.listen()
-    device_handler = DeviceManager(accepted_list, send_rate=0.2)
+    device_handler = DeviceManager(accepted_list, send_rate=1)
     device_handler.start()
     sys.stdout = open('test_log.txt', 'a')
     print("server start")

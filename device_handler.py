@@ -649,6 +649,8 @@ class DeviceManager:
         pass
 
     def _send_data_to_server(self):
+        if self.data_storage == {}:
+            return
         self.add_counter()
         sys.stdout = open('test_log.txt', 'a')
         print(self.data_storage)
@@ -703,6 +705,7 @@ class DeviceManager:
 
         if msg_type == "L":
             return
+
 
         lock.acquire()
         self.data_storage[device.id][msg_type].append(msg_info)
