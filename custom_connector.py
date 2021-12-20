@@ -328,34 +328,43 @@ class Parser:
             # date & time
             answ = "#AD#0\r\n"
             return answ, params
-        if not "NA" in params:
-            # success
-            answ = "#AD#1\r\n"
-            return answ, params
-        if "NA" in params[2:6]:
+        elif "NA" in params[2:6]:
             # cords
             answ = "#AD#10\r\n"
             return answ, params
-        if "NA" in params[6:9]:
+        elif "NA" in params[6:9]:
             # speed, course, height
             answ = "#AD#11\r\n"
             return answ, params
-        if "NA" in params[9:11]:
-            # sats & hdop
+        elif "NA" in params[9:10]:
+            # sats
             answ = "#AD#12\r\n"
             return answ, params
-        if "NA" in params[11:13]:
-            # inputs & outputs
-            answ = "#AD#13\r\n"
-            return answ, params
-        if "NA" in params[13:14]:
-            # adc
-            answ = "#AD#14\r\n"
-            return answ, params
-        if "NA" in params[15:]:
+        elif "NA" in params[15:]:
             # adds
             answ = "#AD#15\r\n"
             return answ, params
+        else:
+            # success
+            answ = "#AD#1\r\n"
+        d_params = {"date": params[0],
+                    "time": params[1],
+                    "lat1": params[2],
+                    "lat2": params[3],
+                    "lon1": params[4],
+                    "lon2": params[5],
+                    "speed": params[6],
+                    "course": params[7],
+                    "height": params[8],
+                    "sats": params[9],
+                    "hdop": params[10],
+                    "inputs": params[11],
+                    "outputs": params[12],
+                    "adc": params[13],
+                    "ibutton": params[14],
+                    "params": [i.split(":") for i in[p for p in params[15].split(",")]],
+                    }
+        return answ, d_params
 
     def parse_d_v2(self, msg_params):
         params = msg_params.split(";")
@@ -707,7 +716,6 @@ class DeviceManager:
             "attributes": [{"connected_devices_id": [d for d in self.device_list]}],
             "telemetry": [{f"msg from gateway {time.time()}": self.data_storage[i]} for i in self.data_storage]
         }
-
 
         print(self.converted_data)
 

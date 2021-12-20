@@ -230,59 +230,51 @@ class Parser:
     def parse_d_v1(msg_params):
         params = msg_params.split(";")
         # date;time;lat1;lat2;lon1;lon2;speed;course;height;sats;hdop;inputs;outputs;adc;ibutton;params
-        answ = "#AD#1\r\n"
 
-        """
-        тут добавить обработку строк перед отпракой на сервер
-        """
-        return answ, params
-        #
-        # if len(params) < 16:
-        #     answ = "#AD#-1\r\n"
-        #     return answ, []
-        #
-        # if "NA" in params[:2]:
-        #     # date & time
-        #     answ = "#AD#0\r\n"
-        #     return answ, params
-        #
-        # if not "NA" in params:
-        #     answ = "#AD#1\r\n"
-        #
-        #     """
-        #     тут добавить обработку строк перед отпракой на сервер
-        #     """
-        #     return answ, params
-        #
-        # if "NA" in params[2:6]:
-        #     # cords
-        #     answ = "#AD#10\r\n"
-        #     return answ, params
-        #
-        # if "NA" in params[6:9]:
-        #     # speed, course, height
-        #     answ = "#AD#11\r\n"
-        #     return answ, params
-        #
-        # # if "NA" in params[9:11]:
-        # #     # sats & hdop
-        # #     answ = "#AD#12\r\n"
-        # #     return answ, params
-        #
-        # if "NA" in params[11:13]:
-        #     # inputs & outputs
-        #     answ = "#AD#13\r\n"
-        #     return answ, params
-        #
-        # if "NA" in params[13:14]:
-        #     # adc
-        #     answ = "#AD#14\r\n"
-        #     return answ, params
-        #
-        # if "NA" in params[15:]:
-        #     # adds
-        #     answ = "#AD#15\r\n"
-        #     return answ, params
+        if len(params) < 16:
+            answ = "#AD#-1\r\n"
+            return answ, []
+        if "NA" in params[:2]:
+            # date & time
+            answ = "#AD#0\r\n"
+            return answ, params
+        elif "NA" in params[2:6]:
+            # cords
+            answ = "#AD#10\r\n"
+            return answ, params
+        elif "NA" in params[6:9]:
+            # speed, course, height
+            answ = "#AD#11\r\n"
+            return answ, params
+        elif "NA" in params[9:10]:
+            # sats
+            answ = "#AD#12\r\n"
+            return answ, params
+        elif "NA" in params[15:]:
+            # adds
+            answ = "#AD#15\r\n"
+            return answ, params
+        else:
+            # success
+            answ = "#AD#1\r\n"
+        d_params = {"date": params[0],
+                    "time": params[1],
+                    "lat1": params[2],
+                    "lat2": params[3],
+                    "lon1": params[4],
+                    "lon2": params[5],
+                    "speed": params[6],
+                    "course": params[7],
+                    "height": params[8],
+                    "sats": params[9],
+                    "hdop": params[10],
+                    "inputs": params[11],
+                    "outputs": params[12],
+                    "adc": params[13],
+                    "ibutton": params[14],
+                    "params": [i.split(":") for i in[p for p in params[15].split(",")]],
+                    }
+        return answ, d_params
 
     def parse_d_v2(self, msg_params):
         params = msg_params.split(";")
@@ -546,6 +538,7 @@ class DeviceManager:
         self.time = None
         self.send_rate = send_rate
         self.sleep_time = sleep_time
+        self._counter = 0
         # self.f = open('log.txt', 'w')
         self._update_send_time()
 
@@ -562,6 +555,9 @@ class DeviceManager:
         lock.release()
         # добавление
 
+    def add_counter(self):
+        self._counter += 1
+
     def _device_listen(self, device):
         device.status = "connected"
         while device.zero_msg_count < 5 and self.loop:
@@ -573,10 +569,10 @@ class DeviceManager:
                 continue
             msg = msg.decode("utf-8").replace("\r\n", "")
 
-            sys.stdout = open('test_log.txt', 'a')
-
-            print("get new msg >>", msg)
-            sys.stdout.close()
+            # sys.stdout = open('test_log.txt', 'a')
+            #
+            # print("get new msg >>", msg)
+            # sys.stdout.close()
             answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
             self.add_info_to_datastorage(device, msg_type, msg_info)
@@ -653,7 +649,11 @@ class DeviceManager:
         pass
 
     def _send_data_to_server(self):
-        # print(self.data_storage)
+        self.add_counter()
+        sys.stdout = open('test_log.txt', 'a')
+        print(self.data_storage)
+        sys.stdout.close()
+
         pass
 
     def _update_send_time(self):
