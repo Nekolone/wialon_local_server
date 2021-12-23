@@ -612,7 +612,7 @@ class DeviceManager:
         self.tr_device_proc = Thread(target=self._device_process)
         self.device_list = {}
         self.data_storage = {}
-        self.converted_data = []
+        self.converted_data = {}
         self.accepted_list = accepted_list
         self._status = False
         self.loop = True
@@ -644,7 +644,7 @@ class DeviceManager:
                 time.sleep(1)
                 continue
             msg = msg.decode("utf-8").replace("\r\n", "")
-            print("get new msg >>", msg)
+            # print("get new msg >>", msg)
             answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
             self.add_info_to_datastorage(device, msg_type, msg_info)
@@ -760,7 +760,7 @@ class DeviceManager:
             return False
         self.msg_answer(device, "#AL#1\r\n")
         return True
-        #
+        # 
         # if self.accepted_list[device.id] == device.password:
         #     self.msg_answer(device, "#AL#1\r\n")
         #     return True
@@ -799,3 +799,4 @@ class DeviceManager:
         self.data_storage[device.id][msg_type].append(msg_info)
         _csc_lock.release()
         return
+

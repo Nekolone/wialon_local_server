@@ -34,24 +34,20 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
         # log.info("Devices in configuration file found: %s ",
         #          '\n'.join(device for device in self.devices))  # Message to logger
 
-        self.accepted_list = self.__config.get("accepted_list", {"0": "0"})
-        print(self.accepted_list)
-        #     {
-        #     "11": "222222",
-        #     "12": "222222",
-        #     "13": "222222"
-        # }
+        self.accepted_list = {
+            "11": "222222"
+        }
 
         """
         добавить в конфиг список разрешенных устройств с их ID и паролями
         """
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server.bind(("192.168.100.107", 10003))
+        self.server.bind(("127.0.0.1", 20332))
         self.server.listen()
 
         self.device_handler = DeviceManager(self.accepted_list, config=self.__config, gateway=self.__gateway,
-                                            send_rate=1)
+                                            send_rate=0.2)
 
     def __del__(self):
         self._stop_server()
@@ -88,21 +84,15 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
                 self.connected = self.device_handler.status
                 print("start")
                 user, adr = self.server.accept()
-                msg = user.recv(1024)
-                try:
-                    msg = msg.decode("utf-8").replace("\r\n", "")
-                    if not msg:
-                        continue
-
-                    device = Device(user, adr, msg)
-                    if not self.device_handler.auth(device):
-                        continue
-
-                    self.device_handler.add_device_to_process(device)
-
-                except:
-                    print(f"ERROR MSG >>> {msg}")
+                msg = user.recv(1024).decode("utf-8").replace("\r\n", "")
+                if not msg:
                     continue
+
+                device = Device(user, adr, msg)
+                if not self.device_handler.auth(device):
+                    continue
+
+                self.device_handler.add_device_to_process(device)
             print("stop")
             self._stop_server()
         except:
@@ -334,43 +324,34 @@ class Parser:
             # date & time
             answ = "#AD#0\r\n"
             return answ, params
-        elif "NA" in params[2:6]:
+        if not "NA" in params:
+            # success
+            answ = "#AD#1\r\n"
+            return answ, params
+        if "NA" in params[2:6]:
             # cords
             answ = "#AD#10\r\n"
             return answ, params
-        elif "NA" in params[6:9]:
+        if "NA" in params[6:9]:
             # speed, course, height
             answ = "#AD#11\r\n"
             return answ, params
-        elif "NA" in params[9:10]:
-            # sats
+        if "NA" in params[9:11]:
+            # sats & hdop
             answ = "#AD#12\r\n"
             return answ, params
-        elif "NA" in params[15:]:
+        if "NA" in params[11:13]:
+            # inputs & outputs
+            answ = "#AD#13\r\n"
+            return answ, params
+        if "NA" in params[13:14]:
+            # adc
+            answ = "#AD#14\r\n"
+            return answ, params
+        if "NA" in params[15:]:
             # adds
             answ = "#AD#15\r\n"
             return answ, params
-        else:
-            # success
-            answ = "#AD#1\r\n"
-        d_params = {"date": params[0],
-                    "time": params[1],
-                    "lat1": params[2],
-                    "lat2": params[3],
-                    "lon1": params[4],
-                    "lon2": params[5],
-                    "speed": params[6],
-                    "course": params[7],
-                    "height": params[8],
-                    "sats": params[9],
-                    "hdop": params[10],
-                    "inputs": params[11],
-                    "outputs": params[12],
-                    "adc": params[13],
-                    "ibutton": params[14],
-                    "params": [i.split(":") for i in [p for p in params[15].split(",")]],
-                    }
-        return answ, d_params
 
     def parse_d_v2(self, msg_params):
         params = msg_params.split(";")
@@ -612,7 +593,7 @@ class DeviceManager:
         self.tr_device_proc = Thread(target=self._device_process)
         self.device_list = {}
         self.data_storage = {}
-        self.converted_data = []
+        self.converted_data = {}
         self.accepted_list = accepted_list
         self._status = False
         self.loop = True
@@ -719,9 +700,13 @@ class DeviceManager:
         self.converted_data = {
             "deviceName": self._name,
             "deviceType": self._type,
-            "attributes": [{"connected_devices_id": [d for d in self.device_list]}],
-            "telemetry": [{f"time>{time.time()}": self.data_storage}]
+            "attributes": [{time.time(): self.data_storage[i]} for i in self.data_storage],
+            "telemetry": [{time.time(): self.data_storage[i]} for i in self.data_storage]
         }
+        if not self.converted_data["attributes"]:
+            self.converted_data["attributes"] = [{"0": "0"}]
+        if not self.converted_data["telemetry"]:
+            self.converted_data["telemetry"] = [{"0": "0"}]
 
         print(self.converted_data)
 
@@ -743,10 +728,6 @@ class DeviceManager:
     """
 
     def _send_data_to_server(self):
-        if not self.converted_data["attributes"]:
-            self.converted_data["attributes"] = [{"0": "0"}]
-        if not self.converted_data["telemetry"]:
-            return
         self._gateway.send_to_storage(self._name, self.converted_data)
 
     def _update_send_time(self):
@@ -755,20 +736,13 @@ class DeviceManager:
     #         ВОТ ТУТ ЦИКЛ проверяет наличие новых данных и запускает отправку на сервер
 
     def auth(self, device):
-        if not device.id:
-            self.msg_answer(device, "#AL#0\r\n")
-            return False
-        self.msg_answer(device, "#AL#1\r\n")
-        return True
-        #
-        # if self.accepted_list[device.id] == device.password:
-        #     self.msg_answer(device, "#AL#1\r\n")
-        #     return True
-        # self.msg_answer(device, "#AL#0\r\n")
-        # return False
+        if self.accepted_list[device.id] == device.password:
+            self.msg_answer(device, "#AL#1\r\n")
+            return True
+        self.msg_answer(device, "#AL#0\r\n")
+        return False
 
-    @staticmethod
-    def msg_answer(device, answer):
+    def msg_answer(self, device, answer):
         device.user.send(f"{answer}".encode("utf-8"))
 
     def start(self):
@@ -799,3 +773,4 @@ class DeviceManager:
         self.data_storage[device.id][msg_type].append(msg_info)
         _csc_lock.release()
         return
+
