@@ -2,15 +2,11 @@ import socket
 import time
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("192.168.100.107", 10003))
-server.listen()
+server.connect(("192.168.100.107", 10003))
 
-print("start")
+log = open("test_log1.txt", "r")
 
 while True:
-    user, adr = server.accept()
-    print("connected")
-    while True:
-        msg = user.recv(1024)
-        print(msg)
-        time.sleep(1)
+    server.send(log.readline().replace("\n", "\r\n").encode("utf-8"))
+    msg = server.recv(1024)
+    time.sleep(10)

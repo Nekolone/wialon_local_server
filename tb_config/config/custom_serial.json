@@ -2,8 +2,7 @@
   "name": "Custom serial connector",
   "type": "wialon device",
   "accepted_list": {
-    "11": "222222",
-    "12": "222222",
-    "13": "222222"
+    "359633107878535": "device1",
+    "359633109072822": "device2"
   }
 }
