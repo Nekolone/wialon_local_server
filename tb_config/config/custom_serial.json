@@ -1,0 +1,9 @@
+{
+  "name": "Custom serial connector",
+  "type": "wialon device",
+  "accepted_list": {
+    "11": "222222",
+    "12": "222222",
+    "13": "222222"
+  }
+}

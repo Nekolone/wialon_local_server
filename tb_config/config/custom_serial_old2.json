@@ -1,0 +1,23 @@
+{
+  "name": "Custom serial connector",
+  "type": "wialon device",
+  "devices":[
+    {
+      "name": "CustomSerialDevice1",
+      "port": 20332,
+      "baudrate": 9600,
+      "telemetry": [
+        {
+          "type": "string",
+          "key": "id"
+        }
+      ],
+      "attributes": [
+        {
+          "key": "sub_device_1",
+          "type": "string"
+        }
+      ]
+    }
+  ]
+}
