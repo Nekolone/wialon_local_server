@@ -634,7 +634,7 @@ class DeviceManager:
                 time.sleep(1)
                 continue
             msg = msg.decode("utf-8").replace("\r\n", "")
-            print("get new msg >>", msg)
+            # print("get new msg >>", msg)
             answ, msg_type, msg_info = device.parse(device, msg)
             self.msg_answer(device, answ)
             self.add_info_to_datastorage(device, msg_type, msg_info)
@@ -665,10 +665,12 @@ class DeviceManager:
     def _device_process(self):
         self._check_device_status()
         if self.time < time.time():
+            _csc_lock.acquire()
             self._prepare_data_to_send()
             self._send_data_to_server()
             self._clear_data()
             self._update_send_time()
+            _csc_lock.release()
         time.sleep(0.5)
 
     def _clear_data(self):
@@ -709,16 +711,16 @@ class DeviceManager:
     def _get_telemetry(self, data):
         telemetry = []
         msg_count = 0
-        print(data)
+        # print(data)
         for device_msg in data:
-            print(device_msg)
+            # print(device_msg)
             for msg in data[device_msg]:
                 msg_count += 1
-                print(msg)
+                # print(msg)
                 if device_msg == "D":
                     telemetry.append(msg)
                 else:
-                    telemetry.append({f"time> {time.time()} msg {msg_count} msg_type {device_msg}": msg})
+                    telemetry.append({f"type> {device_msg}": msg})
                 # telemetry.append(msg)
         return telemetry
 
@@ -737,7 +739,7 @@ class DeviceManager:
             else:
                 self.unknown_devices.append(d)
 
-        print(self.converted_data)
+        # print(self.converted_data)
 
     def _send_data_to_server(self):
         self._gateway.send_to_storage(self._name, {
