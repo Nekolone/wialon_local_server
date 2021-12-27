@@ -342,24 +342,24 @@ class Parser:
         else:
             # success
             answ = "#AD#1\r\n"
-        d_params = {"date": params[0],
-                    "time": params[1],
-                    "lat1": params[2],
-                    "lat2": params[3],
-                    "lon1": params[4],
-                    "lon2": params[5],
-                    "speed": params[6],
-                    "course": params[7],
-                    "height": params[8],
-                    "sats": params[9],
-                    "hdop": params[10],
-                    "inputs": params[11],
-                    "outputs": params[12],
-                    "adc": params[13],
-                    "ibutton": params[14],
-                    "params": [i.split(":") for i in [p for p in params[15].split(",")]],
-                    }
-        return answ, d_params
+        # d_params = {"date": params[0],
+        #             "time": params[1],
+        #             "lat1": params[2],
+        #             "lat2": params[3],
+        #             "lon1": params[4],
+        #             "lon2": params[5],
+        #             "speed": params[6],
+        #             "course": params[7],
+        #             "height": params[8],
+        #             "sats": params[9],
+        #             "hdop": params[10],
+        #             "inputs": params[11],
+        #             "outputs": params[12],
+        #             "adc": params[13],
+        #             "ibutton": params[14],
+        #             "params": [i.split(":") for i in [p for p in params[15].split(",")]],
+        #             }
+        return answ, params
 
     def parse_d_v2(self, msg_params):
         params = msg_params.split(";")
@@ -757,11 +757,8 @@ class DeviceManager:
         for msg in self.converted_data:
             self._gateway.send_to_storage(msg["deviceName"], msg)
 
-
     def _update_send_time(self):
         self.time = time.time() + self.send_rate * 60
-
-    #         ВОТ ТУТ ЦИКЛ проверяет наличие новых данных и запускает отправку на сервер
 
     def auth(self, device):
         if not device.id:
