@@ -731,7 +731,7 @@ class DeviceManager:
                     "deviceName": f"{self.accepted_list[d]}",
                     "deviceType": self._type,
                     "attributes": [{"connected_device_id": d}],
-                    "telemetry": [*self._get_telemetry(self.data_storage[d])]
+                    "telemetry": [self.data_storage[d]]
                 }
                 if not device_msg["telemetry"]:
                     continue
