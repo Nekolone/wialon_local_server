@@ -45,7 +45,7 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
         self.server.listen()
 
         self.device_handler = DeviceManager(self.accepted_list, config=self.__config, gateway=self.__gateway,
-                                            send_rate=0.1)
+                                            send_rate=0.01)
 
     def __del__(self):
         self._stop_server()
@@ -614,13 +614,13 @@ class DeviceManager:
     def add_device_to_process(self, device):
         _csc_lock.acquire()
         self.device_list[device.id] = device
-        self.data_storage[device.id] = {
-            "D": [],
-            "SD": [],
-            "B": [],
-            "M": [],
-            "I": []
-        }
+        self.data_storage[device.id] = []
+        #     "D": [],
+        #     "SD": [],
+        #     "B": [],
+        #     "M": [],
+        #     "I": []
+        # }
         _csc_lock.release()
         # добавление
 
@@ -633,12 +633,17 @@ class DeviceManager:
                 device.add_zmc()
                 time.sleep(1)
                 continue
-            msg = msg.decode("utf-8").replace("\r\n", "")
-            # print("get new msg >>", msg)
-            answ, msg_type, msg_info = device.parse(device, msg)
-            self.msg_answer(device, answ)
-            self.add_info_to_datastorage(device, msg_type, msg_info)
-            time.sleep(0.1)
+            try:
+                msg = msg.decode("utf-8").replace("\r\n", "")
+                print("get new msg >>", msg)
+                answ, msg_type, msg_info = device.parse(device, msg)
+                self.msg_answer(device, answ)
+                self.add_to_data_storage(device, msg_type, msg)
+                # self.data_storage[device.id].append(msg)
+                # self.add_info_to_datastorage(device, msg_type, msg_info)
+                time.sleep(0.1)
+            except:
+                print(f"ERROR MSG {msg}")
         device.status = "disconnected"
         device.user.close()
         print(f"device disconnected. Device id > {device.id}")
@@ -676,13 +681,13 @@ class DeviceManager:
     def _clear_data(self):
         self.data_storage = {}
         for d in self.device_list:
-            self.data_storage[d] = {
-                "D": [],
-                "SD": [],
-                "B": [],
-                "M": [],
-                "I": []
-            }
+            self.data_storage[d] = []
+            #     "D": [],
+            #     "SD": [],
+            #     "B": [],
+            #     "M": [],
+            #     "I": []
+            # }
         self.converted_data = []
 
     def _check_device_status(self):
@@ -708,34 +713,36 @@ class DeviceManager:
         self.device_list.pop(d.id, None)
         _csc_lock.release()
 
-    def _get_telemetry(self, data):
-        telemetry = []
-        msg_count = 0
-        # print(data)
-        for device_msg in data:
-            # print(device_msg)
-            for msg in data[device_msg]:
-                msg_count += 1
-                # print(msg)
-                if device_msg == "D":
-                    telemetry.append(msg)
-                else:
-                    telemetry.append({f"type> {device_msg}": msg})
-                # telemetry.append(msg)
-        return telemetry
+    # def _get_telemetry(self, data):
+    #     telemetry = []
+    #     msg_count = 0
+    #     # print(data)
+    #     for device_msg in data:
+    #         # print(device_msg)
+    #         for msg in data[device_msg]:
+    #             msg_count += 1
+    #             # print(msg)
+    #             telemetry.append({f"data": msg})
+    #             # telemetry.append(msg)
+    #     return telemetry
+
 
     def _prepare_data_to_send(self):
         for d in self.device_list:
             if d in self.accepted_list:
-                device_msg = {
-                    "deviceName": f"{self.accepted_list[d]}",
-                    "deviceType": self._type,
-                    "attributes": [{"connected_device_id": d}],
-                    "telemetry": [self.data_storage[d]]
-                }
-                if not device_msg["telemetry"]:
-                    continue
-                self.converted_data.append(device_msg)
+
+                for it in self.data_storage[d]:
+                    device_msg = {
+                        "deviceName": f"{self.accepted_list[d]}",
+                        "deviceType": self._type,
+                        "attributes": [{"connected_device_id": d}],
+                        "telemetry": [{"data": it}]
+                        # "telemetry": [*self._get_telemetry(self.data_storage[d])]
+                    }
+                    if not device_msg["telemetry"]:
+                        continue
+                    self.converted_data.append(device_msg)
+
             else:
                 self.unknown_devices.append(d)
 
@@ -749,12 +756,14 @@ class DeviceManager:
                 {"connected_devices_id": [d for d in self.device_list]},
                 {"unknown_device_id": [d for d in self.unknown_devices]}
             ],
-            "telemetry": [
-                {"upd": time.time()}
-            ]
+            "telemetry": [{"0": "0"}]
         })
 
         for msg in self.converted_data:
+            # print("__________________________")
+            # print(msg["telemetry"])
+            # print("__________________________")
+            # if msg["telemetry"] != [{"data": {"D": [], "SD": [], "B": [], "M": [], "I": []}}]:
             self._gateway.send_to_storage(msg["deviceName"], msg)
 
     def _update_send_time(self):
@@ -790,18 +799,28 @@ class DeviceManager:
         self.loop = False
         self._status = False
 
-    def add_info_to_datastorage(self, device, msg_type, msg_info):
-        if msg_type == "B":
-            _csc_lock.acquire()
-            self.data_storage[device.id]["SD"].append(msg_info["SD"])
-            self.data_storage[device.id]["D"].append(msg_info["D"])
-            _csc_lock.release()
-            return
-
+    # def add_info_to_datastorage(self, device, msg_type, msg_info):
+    #     if msg_type == "B":
+    #         _csc_lock.acquire()
+    #         self.data_storage[device.id]["SD"].append(msg_info["SD"])
+    #         self.data_storage[device.id]["D"].append(msg_info["D"])
+    #         _csc_lock.release()
+    #         return
+    #
+    #     if msg_type == "P":
+    #         return
+    #
+    #     _csc_lock.acquire()
+    #     self.data_storage[device.id][msg_type].append(msg_info)
+    #     _csc_lock.release()
+    #     return
+    def add_to_data_storage(self, device, msg_type, msg):
         if msg_type == "P":
+            return
+        if msg_type == "L":
             return
 
         _csc_lock.acquire()
-        self.data_storage[device.id][msg_type].append(msg_info)
+        self.data_storage[device.id].append(msg)
         _csc_lock.release()
         return
