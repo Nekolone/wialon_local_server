@@ -670,10 +670,12 @@ class DeviceManager:
     def _device_process(self):
         self._check_device_status()
         if self.time < time.time():
+            _csc_lock.acquire()
             self._prepare_data_to_send()
             self._send_data_to_server()
             self._clear_data()
             self._update_send_time()
+            _csc_lock.release()
         time.sleep(0.5)
 
     def _clear_data(self):
@@ -724,9 +726,11 @@ class DeviceManager:
     #             # telemetry.append(msg)
     #     return telemetry
 
+
     def _prepare_data_to_send(self):
         for d in self.device_list:
             if d in self.accepted_list:
+
                 for it in self.data_storage[d]:
                     device_msg = {
                         "deviceName": f"{self.accepted_list[d]}",
@@ -738,6 +742,7 @@ class DeviceManager:
                     if not device_msg["telemetry"]:
                         continue
                     self.converted_data.append(device_msg)
+
             else:
                 self.unknown_devices.append(d)
 
