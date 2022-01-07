@@ -1,4 +1,15 @@
-from service import *
+import serial
+import socket
+import time
+from threading import Thread
+from random import choice
+from datetime import datetime
+from string import ascii_lowercase
+from thingsboard_gateway.connectors.connector import Connector, log  # Import base class for connector and logger
+from thingsboard_gateway.tb_utility.tb_utility import TBUtility
+
+from device_handler import DeviceManager
+from device import Device
 
 
 class CustomSerialConnector(Thread, Connector):  # Класс кастомного коннектора
@@ -15,9 +26,6 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
         self.daemon = True  # Set self thread as daemon
         self.stopped = True  # Service variable for check state
         self.connected = False  # Service variable for check connection to device
-        # self.devices = {}    # Dictionary with devices, will contain devices configurations, converters for devices and serial port objects
-        # self.load_converters()    # Call function to load converters and save it into devices dictionary
-        # self.__connect_to_devices()    # Call function for connect to devices
         log.info('Custom connector %s initialization success.', self.get_name())  # Message to logger
         # log.info("Devices in configuration file found: %s ",
         #          '\n'.join(device for device in self.devices))  # Message to logger

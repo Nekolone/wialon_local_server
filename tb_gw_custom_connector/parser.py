@@ -1,4 +1,4 @@
-from service import datetime
+from datetime import datetime
 
 
 class Parser:

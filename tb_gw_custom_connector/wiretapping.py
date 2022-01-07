@@ -1,5 +1,5 @@
-from service import DeviceManager, time
 from threading import Lock
+import time
 
 
 class Wiretapping:

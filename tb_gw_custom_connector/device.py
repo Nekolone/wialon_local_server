@@ -1,4 +1,4 @@
-from service import Parser
+from parser import Parser
 
 
 class Device:

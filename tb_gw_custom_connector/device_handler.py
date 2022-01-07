@@ -1,4 +1,15 @@
-from service import Thread, time, self_loop, Lock, Wiretapping
+from threading import Thread, Lock
+import time
+
+from wiretapping import Wiretapping
+
+
+def self_loop(f):
+    def decorator(self):
+        while self.loop:
+            f(self)
+            time.sleep(self.sleep_time)
+    return decorator
 
 
 class DeviceManager:
