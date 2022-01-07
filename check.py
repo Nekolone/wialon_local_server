@@ -36,12 +36,13 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
 
         self.accepted_list = self.__config.get("accepted_list", {"0": "0"})
 
-        try:
-            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server.bind(("192.168.100.107", 10003))
-            self.server.listen()
-        except:
-            print("server creation error")
+        """
+        добавить в конфиг список разрешенных устройств с их ID и паролями
+        """
+
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind(("192.168.100.107", 10003))
+        self.server.listen()
 
         self.device_handler = DeviceManager(self.accepted_list, config=self.__config, gateway=self.__gateway,
                                             send_rate=0.01)
@@ -88,19 +89,13 @@ class CustomSerialConnector(Thread, Connector):  # Define a connector class, it 
                         continue
 
                     device = Device(user, adr, msg)
-
                     if not self.device_handler.auth(device):
-                        continue
-
-                    if device.id in self.device_handler.device_list:
-                        print("this id is already in use")
-                        # user.close()
                         continue
 
                     self.device_handler.add_device_to_process(device)
 
                 except:
-                    print(f"LOGIN ERROR MSG >>> {msg}")
+                    print(f"ERROR MSG >>> {msg}")
                     continue
             print("stop")
             self._stop_server()
@@ -565,16 +560,10 @@ class Device:
         self._status = "new"
         self._zero_msg_count = 0
         self._ddd = 0
-        self.last_data_time = []
-        self.correct_time = lambda: "time_correct" if len(set(self.last_data_time)) > 1 else "time_stopped"
         print(f"device connected. Device id > {self.id}")
 
     def _parse_login(self):
         Parser().parse_login(device=self)
-
-    def set_last_data_time(self, count):
-        for i in range(count):
-            self.last_data_time.append(i)
 
     @property
     def ddd_count(self):
@@ -609,14 +598,11 @@ class DeviceManager:
         #     choice(ascii_lowercase) for _ in range(5)))
         self._name = self._gateway.name
         self._type = self._config.get("type", "default")
-        self._timeout = self._config.get("timeout", 30)
-        self._check_length = self._config.get("check_length", 10)
         self.tr_device_proc = Thread(target=self._device_process)
         self.device_list = {}
         self.data_storage = {}
         self.converted_data = []
         self.unknown_devices = []
-        self.disconnected_devices = []
         self.accepted_list = accepted_list
         self._status = False
         self.loop = True
@@ -626,7 +612,6 @@ class DeviceManager:
         self._update_send_time()
 
     def add_device_to_process(self, device):
-        device.set_last_data_time(self._check_length)
         _csc_lock.acquire()
         self.device_list[device.id] = device
         self.data_storage[device.id] = []
@@ -641,7 +626,7 @@ class DeviceManager:
 
     def _device_listen(self, device):
         device.status = "connected"
-        while device.zero_msg_count < self._timeout and self.loop:
+        while device.zero_msg_count < 5 and self.loop:
             msg = self._recv_msg(device)
             # print(msg)
             if len(msg) == 0:
@@ -650,24 +635,15 @@ class DeviceManager:
                 continue
             try:
                 msg = msg.decode("utf-8").replace("\r\n", "")
-                # print("get new msg >>", msg)
-                print("1")
+                print("get new msg >>", msg)
                 answ, msg_type, msg_info = device.parse(device, msg)
-                print("2")
-                print(msg_info[1])
-                device.last_data_time.pop(0)
-                device.last_data_time.append(msg_info[1])
-                print("3")
-                print(f"{answ}")
                 self.msg_answer(device, answ)
-                print("4")
                 self.add_to_data_storage(device, msg_type, msg)
-                print("5")
                 # self.data_storage[device.id].append(msg)
                 # self.add_info_to_datastorage(device, msg_type, msg_info)
                 time.sleep(0.1)
             except:
-                print(f"LISTEN ERROR MSG {msg}")
+                print(f"ERROR MSG {msg}")
         device.status = "disconnected"
         device.user.close()
         print(f"device disconnected. Device id > {device.id}")
@@ -694,12 +670,10 @@ class DeviceManager:
     def _device_process(self):
         self._check_device_status()
         if self.time < time.time():
-            _csc_lock.acquire()
             self._prepare_data_to_send()
             self._send_data_to_server()
             self._clear_data()
             self._update_send_time()
-            _csc_lock.release()
         time.sleep(0.5)
 
     def _clear_data(self):
@@ -713,8 +687,6 @@ class DeviceManager:
             #     "I": []
             # }
         self.converted_data = []
-        self.disconnected_devices = []
-        self.unknown_devices = []
 
     def _check_device_status(self):
         for d in self.device_list.copy():
@@ -722,23 +694,7 @@ class DeviceManager:
                 continue
 
             if self.device_list[d].status == "disconnected":
-                if d in self.accepted_list:
-                    self._gateway.send_to_storage(
-                        self.accepted_list[d],
-                        {
-                            "deviceName": f"{self.accepted_list[d]}",
-                            "deviceType": self._type,
-                            "attributes": [
-                                {"connected_device_id": d},
-                                {"connection_status": "disconnected"}
-                            ],
-                            "telemetry": [
-                                {"0": "0"}
-                            ]
-                        }
-                    )
                 self._delete_device(self.device_list[d])
-                self.disconnected_devices.append(d)
                 continue
 
             if self.device_list[d].status == "new":
@@ -771,25 +727,17 @@ class DeviceManager:
     def _prepare_data_to_send(self):
         for d in self.device_list:
             if d in self.accepted_list:
-
                 for it in self.data_storage[d]:
                     device_msg = {
                         "deviceName": f"{self.accepted_list[d]}",
                         "deviceType": self._type,
-                        "attributes": [
-                            {"connected_device_id": d},
-                            {"connection_status": "active"},
-                            {"time_status": self.device_list[d].correct_time()}
-                        ],
-                        "telemetry": [
-                            {"data": it}
-                        ]
+                        "attributes": [{"connected_device_id": d}],
+                        "telemetry": [{"data": it}]
                         # "telemetry": [*self._get_telemetry(self.data_storage[d])]
                     }
                     if not device_msg["telemetry"]:
                         continue
                     self.converted_data.append(device_msg)
-
             else:
                 self.unknown_devices.append(d)
 
@@ -801,12 +749,9 @@ class DeviceManager:
             "deviceType": self._type,
             "attributes": [
                 {"connected_devices_id": [d for d in self.device_list]},
-                {"unknown_device_id": [d for d in self.unknown_devices]},
-                {"disconnected_devices": [d for d in self.disconnected_devices]}
+                {"unknown_device_id": [d for d in self.unknown_devices]}
             ],
-            "telemetry": [
-                {"0": "0"}
-            ]
+            "telemetry": [{"0": "0"}]
         })
 
         for msg in self.converted_data:
