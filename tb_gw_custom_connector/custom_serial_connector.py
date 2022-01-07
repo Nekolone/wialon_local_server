@@ -55,22 +55,21 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
             while self.device_handler.status and not self.stopped:
                 self.connected = self.device_handler.status
                 print("start")
-                user, adr = self.server.accept()
+                user, address = self.server.accept()
                 msg = user.recv(1024)
                 try:
                     msg = msg.decode("utf-8").replace("\r\n", "")
                     if not msg:
                         continue
 
-                    device = Device(user, adr, msg)
+                    device = Device(user, address, msg)
 
                     if not self.device_handler.auth(device):
                         continue
 
                     if device.id in self.device_handler.device_list:
-                        print("this id is already in use")
-                        user.send(b"#AL#0\r\n")
-                        # user.close()
+                        self.device_handler.device_list[device.id].new_user_address(user, address)
+                        user.send(b"#AL#1\r\n")
                         continue
 
                     self.device_handler.add_device_to_process(device)
