@@ -1,3 +1,5 @@
+import logging
+
 from parser import Parser
 
 
@@ -13,12 +15,11 @@ class Device:
         self._parse_login()
         self.wiretapping = None
         self.thread_link = None
-
         self._status = "new"
         self._ddd = 0
         self.last_data_time = []
         self.time_status = lambda: "time_correct" if len(set(self.last_data_time)) > 1 else "time_stopped"
-        print(f"device connected. Device id > {self.id}")
+        logging.info(f"device connected. Device id > {self.id}")
 
     def _parse_login(self):
         Parser().parse_login(device=self)

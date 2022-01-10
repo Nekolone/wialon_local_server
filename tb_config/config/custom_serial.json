@@ -1,13 +1,17 @@
 {
   "name": "Custom serial connector",
   "type": "wialon device",
+  "gateway_ip": "192.168.100.107",
+  "gateway_port": 10003,
   "timeout": 30,
-
+  "check_length": 15,
+  "logging_level": "DEBUG",
+  "logging_path": "/etc/thingsboard-gateway/config/tb_log.log",
   "accepted_list": {
-    "359633107878535": {
-      "name": "device1",
-      "tz": "UTC+3"
-    },
-    "359633109072822": "device2"
+    "1": "test_device",
+    "359633107878535": "device1",
+    "359633109072822": "device2",
+    "359633107886660": "device3",
+    "359633107889029": "device4"
   }
 }

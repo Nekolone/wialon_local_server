@@ -1,3 +1,4 @@
+import logging
 from threading import Lock
 import time
 
@@ -14,6 +15,7 @@ class Wiretapping:
         self.device.status = "connected"
         while self.zero_msg_count < self.dm_link.timeout and self.dm_link.loop:
             msg = self._recv_msg()
+            logging.debug(f"device > {self.device.id} get new msg")
             # print(msg)
             if len(msg) == 0:
                 self.zero_msg_count += 1
@@ -22,25 +24,17 @@ class Wiretapping:
             try:
                 self.zero_msg_count = 0
                 msg = msg.decode("utf-8").replace("\r\n", "")
-                # print("get new msg >>", msg)
-                print("1")
                 answer, msg_type, msg_info = self.device.parse(self.device, msg)
-                print("2")
-                print(msg_info[1])
                 self.device.last_data_time.pop(0)
                 self.device.last_data_time.append(msg_info[1])
-                print("3")
-                print(f"{answer}")
                 self._answer_to_msg(answer)
-                print("4")
                 self._add_to_data_storage(msg_type, msg)
-                print("5")
                 time.sleep(0.1)
             except:
-                print(f"LISTEN ERROR MSG {msg}")
+                logging.error(f"LISTEN ERROR MSG {msg}")
         self.device.status = "disconnected"
         self.device.user.close()
-        print(f"device disconnected. Device id > {self.device.id}")
+        logging.info(f"device disconnected. Device id > {self.device.id}")
 
     def _recv_msg(self):
         msg = b""
