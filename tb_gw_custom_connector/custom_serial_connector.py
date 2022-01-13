@@ -343,7 +343,7 @@ class Wiretapping:
                 self._add_to_data_storage(msg_type, msg)
                 time.sleep(0.1)
             except:
-                logging.error(f"LISTEN ERROR MSG {msg}")
+                logging.error(f"device <{self.device.id}> LISTEN ERROR MSG {msg}")
         self.device.status = "disconnected"
         self.device.user.close()
         logging.info(f"device disconnected. Device id > {self.device.id}")
