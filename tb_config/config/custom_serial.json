@@ -5,6 +5,7 @@
   "gateway_port": 10003,
   "timeout": 30,
   "check_length": 15,
+  "send_rate": 0.5,
   "logging_level": "DEBUG",
   "logging_path": "/etc/thingsboard-gateway/config/tb_log.log",
   "accepted_list": {

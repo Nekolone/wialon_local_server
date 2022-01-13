@@ -1,9 +1,10 @@
+print("dh 1")
 from threading import Thread, Lock
 import time
 import logging
 
-from wiretapping import Wiretapping
 from custom_converter import CustomConverter
+from wiretapping import Wiretapping
 
 
 class DeviceManager:
