@@ -11,10 +11,10 @@
 ```
 скопировать файл tb_gateway.py в папку config
 
-    host: 192.168.35.204
+    host: 192.168.100.104
     port: 1883
     security:
-      accessToken: custom_device
+      accessToken: your_token
     ....
     подключать нужный коннектор, в нашем случае 
     Custom Serial Connector
@@ -24,13 +24,24 @@
 скопировать файл custom_serial.py в папку config
 
 {
-  "name":"Custom serial connector",
+  "name": "Custom serial connector",
   "type": "wialon device",
-  "accepted_list":{
-    "id":"device name",
-    "id":"device name"
+  "gateway_ip": "192.168.100.107",
+  "gateway_port": 10003,
+  "timeout": 30,
+  "check_length": 15,
+  "send_rate": 0.5,
+  "logging_level": "DEBUG",
+  "logging_path": "/etc/thingsboard-gateway/config/tb_log.log",
+  "accepted_list": {
+    "1": "test_device",
+    "359633107878535": "device1",
+    "359633109072822": "device2",
+    "359633107886660": "device3",
+    "359633107889029": "device4"
   }
 }
+
 ```
 - connected_devices.json - список девайсов
 ```
@@ -44,7 +55,12 @@
 }
 ```
 
+- tb_log.log
+```
+файл логов для TB
+```
+
 ***полезные ссылки***
 - https://thingsboard.io/docs/iot-gateway/custom/
 - https://thingsboard.io/docs/iot-gateway/install/pip-installation/
-- http://192.168.35.204:8080/devices
+- http://192.168.100.104:8080/devices
