@@ -1,11 +1,11 @@
 thingsboard:
-  host: 192.168.35.204
+  host: 192.168.100.104
   port: 1883
   security:
-    accessToken: custom_device
+    accessToken: sdDSZ1dfA76m1HWc8kWT
 storage:
   type: memory
-  read_records_count: 10
+  read_records_count: 100
   max_records_count: 100000
 #  type: file
 #  data_folder_path: ./data/
