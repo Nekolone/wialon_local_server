@@ -68,7 +68,7 @@ class Parser:
                     device.id, device.password = params
                     device.parse = self.parse_v1
                     return
-                sys.stdout = open('test_log.txt', 'a')
+                sys.stdout = open('../test_log.txt', 'a')
                 print("login error, disconnect device")
                 sys.stdout.close()
                 return
@@ -498,7 +498,7 @@ class Device:
         self.thread_link = None
         self._zero_msg_count = 0
         self.ddd = 0
-        sys.stdout = open('test_log.txt', 'a')
+        sys.stdout = open('../test_log.txt', 'a')
         print(f"device connected. Device id > {self.id}")
         sys.stdout.close()
 
@@ -580,7 +580,7 @@ class DeviceManager:
         device.status = "disconnected"
         device.user.close()
 
-        sys.stdout = open('test_log.txt', 'a')
+        sys.stdout = open('../test_log.txt', 'a')
         print(f"device disconnected. Device id > {device.id}")
         sys.stdout.close()
 
@@ -652,7 +652,7 @@ class DeviceManager:
         if self.data_storage == {}:
             return
         self.add_counter()
-        sys.stdout = open('test_log.txt', 'a')
+        sys.stdout = open('../test_log.txt', 'a')
         print(self.data_storage)
         sys.stdout.close()
 

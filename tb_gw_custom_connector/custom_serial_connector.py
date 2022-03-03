@@ -174,7 +174,7 @@ class DeviceManager:
 
     def _collect_data_from_devices(self):
         for d in self.device_list:
-            self.data_storage[d] = self.device_list[d].wiretapping.get_data()
+            self.data_storage[d] = self.device_list[d].listening_service_link.get_data()
         logging.debug("data collected successfully")
 
     def _prepare_data_to_send(self):
@@ -201,7 +201,7 @@ class DeviceManager:
 
             if self.device_list[d].status == "disconnected":
                 if d in self.accepted_list:
-                    self.set_connection_status(d, "disconnected")
+                    self._set_connection_status(d, "disconnected")
                 self._delete_device(self.device_list[d])
                 self.disconnected_devices.add(d)
                 continue
@@ -210,7 +210,7 @@ class DeviceManager:
                 self._start_listening_device(self.device_list[d])
                 continue
 
-    def set_connection_status(self, d, status):
+    def _set_connection_status(self, d, status):
         self._gateway.send_to_storage(
             self.accepted_list[d],
             {
@@ -227,8 +227,8 @@ class DeviceManager:
         )
 
     def _start_listening_device(self, device):
-        device.wiretapping = Wiretapping(device, self)
-        device.thread_link = Thread(target=device.wiretapping.listen_device)
+        device.listening_service_link = ListeningService(device, self)
+        device.thread_link = Thread(target=device.listening_service_link.listen_device)
         device.thread_link.start()
         logging.debug("new wiretapping thread started successfully")
 
@@ -278,7 +278,7 @@ class Device:
         self.protocol_ver = 1
         self.parse = None
         self._parse_login()
-        self.wiretapping = None
+        self.listening_service_link = None
         self.thread_link = None
         self._status = "new"
         self._ddd = 0
@@ -287,7 +287,7 @@ class Device:
         logging.info(f"device connected. Device id > {self.id}")
 
     def _parse_login(self):
-        Parser().parse_login(device=self)
+        ParsingService().parse_login(device=self)
 
     def set_last_data_time(self, count):
         for i in range(count):
@@ -315,7 +315,7 @@ class Device:
         # st = connected \ disconnected
 
 
-class Wiretapping:
+class ListeningService:
     def __init__(self, device, dm_link):
         self.device = device
         self.dm_link = dm_link
@@ -423,7 +423,7 @@ class CustomConverter:
         return converted_data
 
 
-class Parser:
+class ParsingService:
     def __init__(self):
         self.crc_table = [
             0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
