@@ -80,6 +80,7 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
                 logging.info("waiting for new device connection")
                 try:
                     user, address = self.server.accept()
+                    user.settimeout(30.0)
                     msg = user.recv(1024)
                     try:
                         msg = msg.decode("utf-8").replace("\r\n", "")
@@ -92,19 +93,19 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
                             continue
 
                         if device.id in self.device_handle.device_list:
+                            # self.device_handle.delete_device(device)
                             self.device_handle.device_list[device.id].new_user_address(user, address)
-                            user.send(b"#AL#1\r\n")
                             logging.debug(f"device {device.id} <user> field successfully rewrite")
                             continue
 
                         self.device_handle.add_device_to_process(device)
-                        logging.debug("new device successfully added")
+                        logging.debug("device successfully added")
 
                     except:
                         logging.warning(f"LOGIN ERROR MSG >>> {msg}")
                         continue
                 except:
-                    logging.error("server not working")
+                    logging.error("server error.  working")
             logging.info("stop waiting for new devices")
             self._stop_server()
         except:
@@ -133,7 +134,7 @@ class DeviceManager:
         #     choice(ascii_lowercase) for _ in range(5)))
         self.gw_name = self._gateway.name
         self.gw_type = self._config.get("type", "default")
-        self.timeout = self._config.get("timeout", 30)
+        self.timeout = self._config.get("timeout", 5)
         self._check_length = self._config.get("check_length", 10)
         self.accepted_list = self._config.get("accepted_list", {"0": "0"})  # Загрузка id разрешенных девайсов и их
         # имен для подключения к TB в формате "id": "name"
@@ -202,7 +203,7 @@ class DeviceManager:
             if self.device_list[d].status == "disconnected":
                 if d in self.accepted_list:
                     self._set_connection_status(d, "disconnected")
-                self._delete_device(self.device_list[d])
+                self.delete_device(self.device_list[d])
                 self.disconnected_devices.add(d)
                 continue
 
@@ -232,7 +233,7 @@ class DeviceManager:
         device.thread_link.start()
         logging.debug("new wiretapping thread started successfully")
 
-    def _delete_device(self, d):
+    def delete_device(self, d):
         self.device_list.pop(d.id, None)
 
     @staticmethod
@@ -351,9 +352,13 @@ class ListeningService:
     def _recv_msg(self):
         msg = b""
         while b"\r\n" not in msg:
-            msg += self.device.user.recv(1)
-            if msg == b"":
-                return b""
+            try:
+                msg += self.device.user.recv(1)
+                if msg == b"":
+                    return b""
+            except socket.timeout:
+                logging.debug(f"recv from {self.device.id} timeout")
+
         return msg
 
     def _answer_to_msg(self, answer):
