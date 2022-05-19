@@ -1,3 +1,5 @@
+import string
+
 import serial
 import socket
 import time
@@ -93,7 +95,6 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
                             continue
 
                         if device.id in self.device_handle.device_list:
-                            # self.device_handle.delete_device(device)
                             self.device_handle.device_list[device.id].new_user_address(user, address)
                             logging.debug(f"device {device.id} <user> field successfully rewrite")
                             continue
@@ -114,6 +115,8 @@ class CustomSerialConnector(Thread, Connector):  # Класс кастомног
 
     def _stop_server(self):  # Остановка сервера на сокете
         try:
+            self.device_handle.stop()
+            # self.device_handle.stop_all_child_threads()
             self.server.close()
             logging.debug("server closed")
         except:
@@ -146,23 +149,40 @@ class DeviceManager:
         self.converted_data = []
         self.unknown_devices = set()
         self.disconnected_devices = set()
-        self._status = False
-        self.loop = True
+
+        self.msg_service = CheckService
+
+        self._status: bool = False
+        self._loop: bool = True
         self.time = None
         self._update_send_time()
         logging.debug("DeviceManager initialisation successfully")
 
-    def add_device_to_process(self, device):
+    @property
+    def loop(self) -> bool:
+        return self._loop
+
+    @loop.setter
+    def loop(self, val: bool):
+        self._loop = val
+        if not val:
+            self.stop_all_child_threads()
+
+    def add_device_to_process(self, device) -> None:
         device.set_last_data_time(self._check_length)
         self.device_list[device.id] = device
         self.data_storage[device.id] = []
         logging.debug("new device added successfully")
 
     @property
-    def status(self):
+    def status(self) -> bool:
         return self._status
 
-    def _device_process(self):
+    @status.setter
+    def status(self, value: bool):
+        self._status = value
+
+    def _device_process(self) -> None:
         while self.loop:
             self._check_device_status()
             if self.time < time.time():
@@ -174,8 +194,8 @@ class DeviceManager:
             time.sleep(0.5)
 
     def _collect_data_from_devices(self):
-        for d in self.device_list:
-            self.data_storage[d] = self.device_list[d].listening_service_link.get_data()
+        for device in self.device_list:
+            self.data_storage[device] = self.device_list[device].listening_service_link.get_data()
         logging.debug("data collected successfully")
 
     def _prepare_data_to_send(self):
@@ -196,19 +216,19 @@ class DeviceManager:
         self.time = time.time() + self._send_rate * 60
 
     def _check_device_status(self):
-        for d in self.device_list.copy():
-            if self.device_list[d].status == "connected":
+        for device in self.device_list.copy():
+            if self.device_list[device].status == "connected":
                 continue
 
-            if self.device_list[d].status == "disconnected":
-                if d in self.accepted_list:
-                    self._set_connection_status(d, "disconnected")
-                self.delete_device(self.device_list[d])
-                self.disconnected_devices.add(d)
+            if self.device_list[device].status == "disconnected":
+                if device in self.accepted_list:
+                    self._set_connection_status(device, "disconnected")
+                self.delete_device(self.device_list[device])
+                self.disconnected_devices.add(device)
                 continue
 
-            if self.device_list[d].status == "new":
-                self._start_listening_device(self.device_list[d])
+            if self.device_list[device].status == "new":
+                self._start_listening_device(self.device_list[device])
                 continue
 
     def _set_connection_status(self, d, status):
@@ -228,8 +248,10 @@ class DeviceManager:
         )
 
     def _start_listening_device(self, device):
-        device.listening_service_link = ListeningService(device, self)
-        device.thread_link = Thread(target=device.listening_service_link.listen_device)
+        # device.listening_service_link = ListeningService(device, self.timeout, self.msg_service.check_msg)
+        device.listening_service_link.timeout = self.timeout
+        device.listening_service_link.check_msg = self.msg_service.check_msg
+        # device.thread_link = Thread(target=device.listening_service_link.listen_device)
         device.thread_link.start()
         logging.debug("new wiretapping thread started successfully")
 
@@ -251,7 +273,8 @@ class DeviceManager:
         # return False
 
     def start(self):
-        self._status = True
+        self.status = True
+        # self._status = True
         self.loop = True
         self.tr_device_proc.start()
         logging.debug("start DeviceManager successfully")
@@ -265,30 +288,52 @@ class DeviceManager:
 
     def stop(self):
         self.loop = False
-        self._status = False
+        self.status = False
         logging.debug("stopping DeviceManager")
+
+    def stop_all_child_threads(self):
+        for device in self.device_list:
+            device.status = "disconnected"
 
 
 class Device:
-    def __init__(self, user, address, login_msg):
+    def __init__(self, user, address, login_msg: string):
         self.user = user
         self.address = address
-        self.login_msg = login_msg
-        self.id = None
-        self.password = None
-        self.protocol_ver = 1
-        self.parse = None
+        self.login_msg: string = login_msg
+        self.id: string = None
+        self.password: string = None
+        # self.protocol_ver = 1
+        # self.parse = None
         self._parse_login()
-        self.listening_service_link = None
-        self.thread_link = None
+        self.listening_service_link: ListeningService = ListeningService(self)
+        self.thread_link = Thread(target=self.listening_service_link.listen_device)
         self._status = "new"
-        self._ddd = 0
+        # self._ddd = 0
         self.last_data_time = []
         self.time_status = lambda: "time_correct" if len(set(self.last_data_time)) > 1 else "time_stopped"
         logging.info(f"device connected. Device id > {self.id}")
 
+    def __del__(self):
+        self.status = "disconnected"
+
+    @property
+    def status(self) -> string:
+        return self._status
+
+    @status.setter
+    def status(self, value: string):
+        self._status = value
+        if value == "disconnected":
+            try:
+                self.listening_service_link.stop()
+            except:
+                logging.debug("cant stop listening service, coz not exist")
+
     def _parse_login(self):
-        ParsingService().parse_login(device=self)
+        _, msg_type, msg_info = self.login_msg.split("#")
+        self.id, self.password = msg_info.split(";")
+        # ParsingService().parse_login(device=self)
 
     def set_last_data_time(self, count):
         for i in range(count):
@@ -297,36 +342,62 @@ class Device:
     def new_user_address(self, user, address):
         self.user = user
         self.address = address
+        if self.status != "disconnected":
+            return
+        self.status = "connected"
+        self.listening_service_link.loop = True
+        self.thread_link.start()
 
-    @property
-    def ddd_count(self):
-        return self._ddd
-
-    @ddd_count.setter
-    def ddd_count(self, ddd):
-        self._ddd = ddd
-
-    @property
-    def status(self):
-        return self._status
-
-    @status.setter
-    def status(self, st):
-        self._status = st
-        # st = connected \ disconnected
+    # @property
+    # def ddd_count(self):
+    #     return self._ddd
+    #
+    # @ddd_count.setter
+    # def ddd_count(self, ddd):
+    #     self._ddd = ddd
 
 
 class ListeningService:
-    def __init__(self, device, dm_link):
+    def __init__(self, device: Device):
         self.device = device
-        self.dm_link = dm_link
+
+        self._timeout = None
+
+        self._check_msg = None
+
+        self._loop = True
+
         self._data_storage = []
         self.lock = Lock()
         self.zero_msg_count = 0
 
+    @property
+    def loop(self) -> bool:
+        return self._loop
+
+    @loop.setter
+    def loop(self, value: bool):
+        self._loop = value
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        self._timeout = value
+
+    @property
+    def check_msg(self):
+        return self._check_msg
+
+    @check_msg.setter
+    def check_msg(self, value):
+        self._check_msg = value
+
     def listen_device(self):
         self.device.status = "connected"
-        while self.zero_msg_count < self.dm_link.timeout and self.dm_link.loop:
+        while self.zero_msg_count < self.timeout and self.loop:
             msg = self._recv_msg()
             logging.debug(f"device > {self.device.id} get new msg")
             # print(msg)
@@ -337,19 +408,21 @@ class ListeningService:
             try:
                 self.zero_msg_count = 0
                 msg = msg.decode("utf-8").replace("\r\n", "")
-                answer, msg_type, msg_info = self.device.parse(self.device, msg)
-                self.device.last_data_time.pop(0)
-                self.device.last_data_time.append(msg_info[1])
-                self._answer_to_msg(answer)
+                msg_type, msg_time, check_status = self._check_msg(msg)
+                if not check_status == "correct":
+                    logging.debug(f"device <{self.device.id}> error msg struct {msg}")
+                    continue
+                # answer, msg_type, msg_info = self.device.parse(self.device, msg)
+                self._update_time(msg_time)
+                self._answer_to_msg(f"#{msg_type}#1\r\n")
                 self._add_to_data_storage(msg_type, msg)
-                time.sleep(0.1)
             except:
                 logging.error(f"device <{self.device.id}> LISTEN ERROR MSG {msg}")
-        self.device.status = "disconnected"
         self.device.user.close()
+        self.device.status = "disconnected"
         logging.info(f"device disconnected. Device id > {self.device.id}")
 
-    def _recv_msg(self):
+    def _recv_msg(self) -> string:
         msg = b""
         while b"\r\n" not in msg:
             try:
@@ -361,10 +434,10 @@ class ListeningService:
 
         return msg
 
-    def _answer_to_msg(self, answer):
-        self.device.user.send(f"{answer}".encode("utf-8"))
+    def _answer_to_msg(self, answer: string) -> None:
+        self.device.user.send(answer.encode("utf-8"))
 
-    def _add_to_data_storage(self, msg_type, msg):
+    def _add_to_data_storage(self, msg_type: string, msg: string) -> None:
         if msg_type == "P":
             return
         if msg_type == "L":
@@ -373,44 +446,29 @@ class ListeningService:
         self._data_storage.append(msg)
         self.lock.release()
 
-    def get_data(self):
+    def stop(self):
+        self.loop = False
+
+    def get_data(self) -> []:
         self.lock.acquire()
         data = self._data_storage.copy()
         self._data_storage = []
         self.lock.release()
         return data
 
+    def _update_time(self, last_time: string) -> None:
+        self.device.last_data_time.pop(0)
+        self.device.last_data_time.append(last_time[1])
+
 
 class CustomConverter:
-    def __init__(self, conv_type, dev_man):
-        self.conv_type = conv_type
-        self.dev_man = dev_man
+    def __init__(self, conv_type: string, dev_man: DeviceManager):
+        self.conv_type: string = conv_type
+        self.dev_man: DeviceManager = dev_man
 
-    def convert(self):
-        converted_data = []
+    def convert(self) -> list:
 
-        for d in self.dev_man.device_list:
-            if d not in self.dev_man.accepted_list:
-                self.dev_man.unknown_devices.add(d)
-                continue
-
-            for it in self.dev_man.data_storage[d]:
-                if not it:
-                    continue
-
-                device_msg = {
-                    "deviceName": f"{self.dev_man.accepted_list[d]}",
-                    "deviceType": self.dev_man.gw_type,
-                    "attributes": [
-                        {"connected_device_id": d},
-                        {"connection_status": "active"},
-                        {"time_status": self.dev_man.device_list[d].time_status()}
-                    ],
-                    "telemetry": [
-                        {"data": it}
-                    ]
-                }
-                converted_data.append(device_msg)
+        converted_data = self._convert_telemetry()
 
         converted_data.append({
             "deviceName": self.dev_man.gw_name,
@@ -424,8 +482,58 @@ class CustomConverter:
                 {"0": "0"}
             ]
         })
-        logging.debug("data conversion successfully")
+        # logging.debug("data conversion successfully")
         return converted_data
+
+    def _convert_telemetry(self) -> list:
+        telemetry: list = []
+        for device in self.dev_man.device_list:
+            if device not in self.dev_man.accepted_list:
+                self.dev_man.unknown_devices.add(device)
+                continue
+
+            for device_telemetry in self.dev_man.data_storage[device]:
+                if not device_telemetry:
+                    continue
+
+                device_msg = {
+                    "deviceName": f"{self.dev_man.accepted_list[device]}",
+                    "deviceType": self.dev_man.gw_type,
+                    "attributes": [
+                        {"connected_device_id": device},
+                        {"connection_status": "active"},
+                        {"time_status": self.dev_man.device_list[device].time_status()}
+                    ],
+                    "telemetry": [
+                        {"data": device_telemetry}
+                    ]
+                }
+                telemetry.append(device_msg)
+
+        return telemetry
+
+
+class CheckService:
+    def __init__(self):
+        self.kw_dict = {
+            "L": 2,
+            "SD": 10,
+            "D": 16,
+            "P": 0,
+            "B": 1,
+            "M": 1,
+            "US": 1,
+            "UС": 1,
+        }
+
+    def check_msg(self, msg: string) -> (string, string, string):
+        _, msg_type, msg_params = msg.split("#", 2)
+        if self.kw_dict[msg_type] != len(msg_params.split(";")):
+            return msg_type, 0, "msg struct error"
+        """
+        можно добавить доп проверки
+        """
+        return msg_type, msg_params[1], "correct"
 
 
 class ParsingService:
