@@ -414,9 +414,8 @@ class ListeningService:
                     continue
                 # answer, msg_type, msg_info = self.device.parse(self.device, msg)
 
-                logging.debug(msg_type, msg_time, check_status)
                 self._update_time(msg_time)
-                self._answer_to_msg(f"#{msg_type}#1\r\n")
+                self._answer_to_msg(f"#A{msg_type}#1\r\n")
                 self._add_to_data_storage(msg_type, msg)
             except:
                 logging.error(f"device <{self.device.id}> LISTEN ERROR MSG {msg}")
@@ -532,7 +531,6 @@ class CheckService:
 
     @staticmethod
     def check_msg(msg) -> (string, string, string):
-        logging.debug(msg)
         _, msg_type, msg_params = msg.split("#", 2)
         msg_param_list = msg_params.split(";")
         if CheckService.kw_dict[msg_type] != len(msg_param_list):
