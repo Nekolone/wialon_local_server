@@ -250,7 +250,7 @@ class DeviceManager:
     def _start_listening_device(self, device):
         # device.listening_service_link = ListeningService(device, self.timeout, self.msg_service.check_msg)
         device.listening_service_link.timeout = self.timeout
-        device.listening_service_link.check_msg = self.msg_service.check_msg
+        # device.listening_service_link.check_msg = self.msg_service.check_msg
         # device.thread_link = Thread(target=device.listening_service_link.listen_device)
         device.thread_link.start()
         logging.debug("new wiretapping thread started successfully")
@@ -293,7 +293,7 @@ class DeviceManager:
 
     def stop_all_child_threads(self):
         for device in self.device_list:
-            device.status = "disconnected"
+            self.device_list[device].status = "disconnected"
 
 
 class Device:
@@ -342,7 +342,7 @@ class Device:
     def new_user_address(self, user, address):
         self.user = user
         self.address = address
-        if self.status != "disconnected":
+        if self.status != "disconnected" or self.status != "new":
             return
         self.status = "connected"
         self.listening_service_link.loop = True
@@ -363,7 +363,6 @@ class ListeningService:
 
         self._timeout = None
 
-        self._check_msg = None
 
         self._loop = True
 
@@ -387,13 +386,14 @@ class ListeningService:
     def timeout(self, value):
         self._timeout = value
 
-    @property
-    def check_msg(self):
-        return self._check_msg
-
-    @check_msg.setter
-    def check_msg(self, value):
-        self._check_msg = value
+    #
+    # @property
+    # def check_msg(self):
+    #     return self._check_msg
+    #
+    # @check_msg.setter
+    # def check_msg(self, value):
+    #     self._check_msg = value
 
     def listen_device(self):
         self.device.status = "connected"
@@ -408,11 +408,13 @@ class ListeningService:
             try:
                 self.zero_msg_count = 0
                 msg = msg.decode("utf-8").replace("\r\n", "")
-                msg_type, msg_time, check_status = self._check_msg(msg)
+                msg_type, msg_time, check_status = CheckService.check_msg(msg)
                 if not check_status == "correct":
                     logging.debug(f"device <{self.device.id}> error msg struct {msg}")
                     continue
                 # answer, msg_type, msg_info = self.device.parse(self.device, msg)
+
+                logging.debug(msg_type, msg_time, check_status)
                 self._update_time(msg_time)
                 self._answer_to_msg(f"#{msg_type}#1\r\n")
                 self._add_to_data_storage(msg_type, msg)
@@ -514,26 +516,31 @@ class CustomConverter:
 
 
 class CheckService:
-    def __init__(self):
-        self.kw_dict = {
-            "L": 2,
-            "SD": 10,
-            "D": 16,
-            "P": 0,
-            "B": 1,
-            "M": 1,
-            "US": 1,
-            "UС": 1,
-        }
+    kw_dict = {
+        "L": 2,
+        "SD": 10,
+        "D": 16,
+        "P": 0,
+        "B": 1,
+        "M": 1,
+        "US": 1,
+        "UС": 1,
+    }
 
-    def check_msg(self, msg: string) -> (string, string, string):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def check_msg(msg) -> (string, string, string):
+        logging.debug(msg)
         _, msg_type, msg_params = msg.split("#", 2)
-        if self.kw_dict[msg_type] != len(msg_params.split(";")):
-            return msg_type, 0, "msg struct error"
+        msg_param_list = msg_params.split(";")
+        if CheckService.kw_dict[msg_type] != len(msg_param_list):
+            return msg_type, "0", "msg struct error"
         """
         можно добавить доп проверки
         """
-        return msg_type, msg_params[1], "correct"
+        return msg_type, msg_param_list[1], "correct"
 
 
 class ParsingService:
